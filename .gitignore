@@ -1,0 +1,6 @@
+*.wav
+*.crt
+*.mp3
+.env
+
+__pycache__/
