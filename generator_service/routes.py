@@ -5,21 +5,26 @@ import sounddevice as sd
 import whisper
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, Response
+from elasticsearch import Elasticsearch
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, Response, UploadFile, File
+from langchain_elasticsearch import ElasticsearchStore
+from langchain_openai import OpenAIEmbeddings
 from openai import AsyncOpenAI
 from scipy.io.wavfile import write
+
 
 router = APIRouter()
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "http://localhost:9200")
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 TEMP_STORAGE_DIR = "/tmp"
 
 recording_data = []
-sampling_rate = 44100
-channels = 1
+sampling_rate = 44100 # default, sr is read in from user's device
+channels = 1 # mono to reduce data packet size
 
 model = whisper.load_model('base')
 
@@ -30,11 +35,11 @@ format_dict = {
     'scotsman': {"role": "system", "content": "You are a Scottish Highlander who always responds in a Scottish Accent!"}
 }
 
-messages=[
-        {"role": "system", "content": "You are a helpful assistant designed to output JSON and puts the answers in the response attribute of the JSON regardless of status."},
-    ]
+messages = [
+    {"role": "system", "content": "You are a helpful assistant designed to output JSON and puts the answers in the response attribute of the JSON regardless of status."},
+]
 
-async def generate_response_chat(prompt, narrator=None):
+async def generate_response_chat(prompt, narrator=None, documents=None):
     global messages
 
     try:
@@ -42,13 +47,17 @@ async def generate_response_chat(prompt, narrator=None):
             raise HTTPException(status_code=400, detail="Prompt is required")
         elif len(prompt) > 1000:
             raise HTTPException(status_code=400, detail="Prompt is too long")
-        
+
         messages += [{"role": "user", "content": f'{prompt}'}]
 
         if narrator in format_dict:
             messages.insert(0, format_dict[narrator])
         else:
             print('Sorry, that narrator is not available at this time...')
+
+        if documents:
+            for doc in documents:
+                messages.append({"role": "system", "content": f'Domain Knowledge: {doc}'})
 
         response = await client.chat.completions.create(
             model="gpt-3.5-turbo-0125",
@@ -70,7 +79,30 @@ async def generate_response_chat(prompt, narrator=None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+### ELASTICSEARCH SETUP ###
+
+es = Elasticsearch([ELASTICSEARCH_HOST])
+embedding = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
+vector_store = ElasticsearchStore(es_url=ELASTICSEARCH_HOST, index_name="documents", embedding=embedding)
+
+async def store_document(text):
+    vector_store.add_texts(texts=[text])
+
+async def search_documents(query):
+    return vector_store.similarity_search(query)
+
 #############
+
+@router.post("/load-document")
+async def load_document(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        text = content.decode('utf-8')
+
+        await store_document(text)
+        return {"message": "Document uploaded and stored successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate")
 async def generate_response_text(request: Request):
@@ -84,27 +116,14 @@ async def generate_response_text(request: Request):
             raise HTTPException(status_code=400, detail="Prompt is required")
         elif len(prompt) > 1000:
             raise HTTPException(status_code=400, detail="Prompt is too long")
-        
-        messages += [{"role": "user", "content": f'{prompt}'}]
+
         narrator = request_body.get("narrator")
 
-        if narrator: 
-            if narrator in format_dict:
-                messages = [format_dict[narrator]] + messages
-                print(messages)
-            else:
-                print('Sorry, that narrator is not available at this time...')
+        search_results = await search_documents(prompt)
+        relevant_docs = [result.page_content for result in search_results]
 
-        response = await client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",
-            response_format={"type": "json_object"},
-            messages=messages
-        )
-
-        response_content = json.loads(response.choices[0].message.content)
-        response_data = response_content["response"]
-
-        return Response(content=json.dumps({"response": response_data}), status_code=200)
+        response = await generate_response_chat(prompt, narrator, documents=relevant_docs)
+        return response
 
     except HTTPException as http_exc:
         return http_exc
@@ -117,6 +136,22 @@ async def generate_response_text(request: Request):
 async def list_audio_devices():
     devices = sd.query_devices()
     return [device['name'] for device in devices]
+
+@router.post("/search")
+async def search_responses(request: Request):
+    try:
+        request_body = await request.json()
+        query = request_body.get("query")
+
+        if not query:
+            raise HTTPException(status_code=400, detail="Query is required")
+
+        search_results = await search_documents(query)
+        return Response(content=json.dumps({"results": search_results}), status_code=200)
+    except HTTPException as http_exc:
+        return http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.websocket("/ws/generate")
 async def websocket_endpoint(websocket: WebSocket):
@@ -165,10 +200,16 @@ async def websocket_endpoint(websocket: WebSocket):
             prompt = model.transcribe(temp_file_path)['text']
 
             # Generate Response
-            response = await generate_response_chat(prompt, narrator)
+            search_results = await search_documents(prompt)
+            relevant_docs = [result.page_content for result in search_results]
+
+            response = await generate_response_chat(prompt, narrator, documents=relevant_docs)
 
             # Delete temporary file (if needed)
             os.remove(temp_file_path)
+
+            # Store document in Elasticsearch
+            await store_document(prompt)
 
             # Return Response to client
             await websocket.send_text(response.body.decode())
