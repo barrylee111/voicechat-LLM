@@ -3,7 +3,8 @@
 TBD
 
 ### VoiceChat
-- Enables user to have a conversation with an LLM
+- Enables user to have a conversation with an LLM (Voice in, Voice out)
+  - Voice input is working, Voice output is currently being constructed
 - Enables user to select a `narrator` that will act according to the description. (The TTS models that will be invoked are part of the next build cycle: AI)
   - Pirate
   - Scotsman
@@ -11,7 +12,7 @@ TBD
 
 ### TextChat
   - Enables user to interact with an LLM via prompt
-  - Auto-Complete (part of next build cycle: frontend) 
+  - Auto-Complete (part of frontend build cycle) 
 
 ## Technologies Applied
 ### LLM
@@ -29,7 +30,6 @@ TBD
 - Websockets
 
 ### Databases
-- Coming in next build cycle
 - PostGreSQL (User/Auth)
 - VectorDB (Domain specific knowlegdge - RAG architecture)
 
