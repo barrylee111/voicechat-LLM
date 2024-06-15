@@ -7,6 +7,9 @@ import whisper
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, Response, UploadFile, File
+from fastapi.responses import FileResponse
+from gtts import gTTS
+from io import BytesIO
 from langchain_elasticsearch import ElasticsearchStore
 from langchain_openai import OpenAIEmbeddings
 from openai import AsyncOpenAI
@@ -32,14 +35,14 @@ model = whisper.load_model('base')
 
 format_dict = {
     'pirate': {"role": "system", "content": "You are a pirate chatbot who always responds in pirate speak!"},
-    'scotsman': {"role": "system", "content": "You are a Scottish Highlander who always responds in a Scottish Accent!"}
+    'scotsman': {"role": "system", "content": "You are a Scottish Highlander who always responds in a Scottish Accent regardless of the question or topic!"}
 }
 
 messages = [
     {"role": "system", "content": "You are a helpful assistant designed to output JSON and puts the answers in the response attribute of the JSON regardless of status."},
 ]
 
-async def generate_response_chat(prompt, narrator=None, documents=None):
+async def generate_response(prompt, narrator=None, documents=None):
     global messages
 
     try:
@@ -69,8 +72,7 @@ async def generate_response_chat(prompt, narrator=None, documents=None):
         if "response" not in response_content:
             raise HTTPException(status_code=500, detail="Invalid response format")
 
-        response_data = response_content["response"]
-        return Response(content=json.dumps({"response": response_data}), status_code=200)
+        return response_content["response"]
 
     except HTTPException as http_exc:
         return http_exc
@@ -122,8 +124,8 @@ async def generate_response_text(request: Request):
         search_results = await search_documents(prompt)
         relevant_docs = [result.page_content for result in search_results]
 
-        response = await generate_response_chat(prompt, narrator, documents=relevant_docs)
-        return response
+        response_data = await generate_response(prompt, narrator, documents=relevant_docs)
+        return Response(content=json.dumps({"response": response_data}), status_code=200)
 
     except HTTPException as http_exc:
         return http_exc
@@ -154,7 +156,7 @@ async def search_responses(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.websocket("/ws/generate")
-async def websocket_endpoint(websocket: WebSocket):
+async def generate_response_chat(websocket: WebSocket):
     global recording_data, sampling_rate, channels
 
     await websocket.accept()
@@ -198,21 +200,23 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # Transcribe from the temporary WAV file
             prompt = model.transcribe(temp_file_path)['text']
+            os.remove(temp_file_path)
 
             # Generate Response
             search_results = await search_documents(prompt)
             relevant_docs = [result.page_content for result in search_results]
 
-            response = await generate_response_chat(prompt, narrator, documents=relevant_docs)
+            response_data = await generate_response(prompt, narrator, documents=relevant_docs)
+            tts = gTTS(response_data, lang='en')
+        
+            # To test audio output locally
+            # tts.save('audio_output.wav')
 
-            # Delete temporary file (if needed)
-            os.remove(temp_file_path)
-
-            # Store document in Elasticsearch
-            await store_document(prompt)
-
-            # Return Response to client
-            await websocket.send_text(response.body.decode())
+            audio_bytes = BytesIO()
+            tts.write_to_fp(audio_bytes)
+            audio_bytes.seek(0)
+            
+            await websocket.send_bytes(audio_bytes.read())
 
         elif action == "cancel":
             await websocket.send_text("Recording cancelled and data discarded.")
