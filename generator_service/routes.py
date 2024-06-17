@@ -7,7 +7,6 @@ import whisper
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, Response, UploadFile, File
-from fastapi.responses import FileResponse
 from gtts import gTTS
 from io import BytesIO
 from langchain_elasticsearch import ElasticsearchStore
@@ -34,7 +33,7 @@ model = whisper.load_model('base')
 ### UTILS ###
 
 format_dict = {
-    'pirate': {"role": "system", "content": "You are a pirate chatbot who always responds in pirate speak!"},
+    'pirate': {"role": "system", "content": "You are a pirate chatbot who always responds in pirate speak regardless of the question or topic!!"},
     'scotsman': {"role": "system", "content": "You are a Scottish Highlander who always responds in a Scottish Accent regardless of the question or topic!"}
 }
 
@@ -112,6 +111,8 @@ async def generate_response_text(request: Request):
 
     try:
         request_body = await request.json()
+        print(request_body)
+        print()
         prompt = request_body.get("prompt")
 
         if not prompt:
