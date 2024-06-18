@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { generateLLMResponse } from './TextService';
+import { ButtonStyle, ContainerStyle, TextAreaStyle } from './Styles';
+import { AppText as text } from './Text';
 
 const App = () => {
   const [prompt, setPrompt] = useState('');
   const [narrator, setNarrator] = useState('');
-  const [documents, setDocuments] = useState('');
   const [responseText, setResponseText] = useState('');
 
   const handleGenerateLLMResponse = async () => {
     try {
-      const response = await generateLLMResponse(prompt, narrator, documents);
+      const response = await generateLLMResponse(prompt, narrator);
       setResponseText(response.response);
     } catch (error) {
       console.error('Error generating LLM response:', error);
@@ -18,18 +19,21 @@ const App = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'center' }} className="App">
-      <h1>VoiceChat LLM</h1>
+    <div style={ContainerStyle}>
+      <h1>{text.main_header}</h1>
       <div style={{ marginBottom: '25px' }}>
-        <h2>Select Narrator</h2>
+        <h2>{text.select_narrator}</h2>
         <select 
           id="narrator" 
           value={narrator} 
-          onChange={(e) => setNarrator(e.target.value.toLowerCase())}
+          onChange={(e) => setNarrator(e.target.value)}
         >
-          <option value="None">None</option>
-          <option value="Pirate">Pirate</option>
-          <option value="Scotsman">Scotsman</option>
+          {Object.entries(text.narrator_options).map(([k, v]) => (
+            <option
+              key={k}
+              value={k}
+            >{v}</option>
+          ))}
         </select>
       </div>
       <div>
@@ -37,16 +41,24 @@ const App = () => {
           id="prompt"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          style={{ height: '100px', resize: 'vertical', width: '25%' }}
+          style={TextAreaStyle}
           required
         />
       </div>
       <div>
-        <button style={{ width: '25%' }} onClick={handleGenerateLLMResponse}>Generate Prompt</button>
+        <button
+          style={ButtonStyle}
+          onClick={handleGenerateLLMResponse}
+        >{text.button}</button>
       </div>
       <div>
-        <h2>Generated Response:</h2>
-        <p>{responseText}</p>
+        <h2>{text.response_header}</h2>
+        <textarea
+          id="response"
+          value={responseText}
+          style={TextAreaStyle}
+          readOnly
+        />
       </div>
     </div>
   );
