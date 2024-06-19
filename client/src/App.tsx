@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { generateLLMResponse } from './TextService';
-import { ButtonStyle, ContainerStyle, TextAreaStyle } from './Styles';
+import { Styles } from './Styles';
 import { AppText as text } from './Text';
+import { MicrophoneIcon } from '@heroicons/react/16/solid';
 
-const App = () => {
+const App: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [narrator, setNarrator] = useState('');
   const [responseText, setResponseText] = useState('');
@@ -19,46 +20,47 @@ const App = () => {
   };
 
   return (
-    <div style={ContainerStyle}>
-      <h1>{text.main_header}</h1>
-      <div style={{ marginBottom: '25px' }}>
-        <h2>{text.select_narrator}</h2>
+    <div className={Styles.container}>
+      <h1 className={Styles.h1}>{text.main_header}</h1>
+      <div className={Styles.narrator}>
+        <h2 className={Styles.h2}>{text.select_narrator}</h2>
         <select 
           id="narrator" 
           value={narrator} 
           onChange={(e) => setNarrator(e.target.value)}
         >
           {Object.entries(text.narrator_options).map(([k, v]) => (
-            <option
-              key={k}
-              value={k}
-            >{v}</option>
+            <option key={k} value={k}>{v}</option>
           ))}
         </select>
       </div>
       <div>
+        <h2 className={Styles.h2}>{text.response_header}</h2>
+        <textarea
+          id="conversation"
+          value={responseText}
+          onChange={(e) => setResponseText(e.target.value)}
+          className={Styles.conversation}
+          readOnly
+        />
+      </div>
+      <div className={Styles.prompt}>
         <textarea
           id="prompt"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          style={TextAreaStyle}
+          className={Styles.prompt_window}
           required
         />
       </div>
       <div>
         <button
-          style={ButtonStyle}
+          className={Styles.button}
           onClick={handleGenerateLLMResponse}
-        >{text.button}</button>
-      </div>
-      <div>
-        <h2>{text.response_header}</h2>
-        <textarea
-          id="response"
-          value={responseText}
-          style={TextAreaStyle}
-          readOnly
-        />
+        >
+          {text.button}
+        </button>
+        <MicrophoneIcon className={Styles.microphone} />
       </div>
     </div>
   );

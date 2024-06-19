@@ -6,6 +6,6 @@ export const AppText = {
         pirate: 'Pirate',
         scotsman: 'Scotsman'
     },
-    button: 'Generate Prompt',
-    response_header: 'Generated Response'
+    button: 'Send',
+    response_header: 'Conversation Header (State)'
 }
