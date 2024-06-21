@@ -18,19 +18,24 @@ TBD
 ### LLM
 - ChatGPT
 
+### Backend Server
+- FastAPI - Text-To-Text and Speech-To-Speech Flows (Next Build Cycle)
+- Django - User creation, authentication, and authorization
+
 ### Languages
-- React (Coming in next build cycle)
-- Python / FastAPI
+- React
+- Typescript
+- Python
 - CSS: Tailwind
 
 ### Containerization
-- Docker (Coming in next build cycle)
+- Docker (Next build cycle)
 
 ### Streaming flow of audio input
 - Websockets
 
 ### Databases
-- PostGreSQL (User/Auth)
+- PostGreSQL (User/Auth - Next Build Cycle)
 - VectorDB (Domain specific knowlegdge - RAG architecture)
 
 ## Future Planning
@@ -53,9 +58,9 @@ TBD
 ### Clustering
 - EKS / Kubernetes / Terraform
 
-### LLM
+### LLM To SLM
 Swap out ChatGPT for an SLM like Llama3 that is running on our own server.
 
-### Mobile
+### Mobile Versions
 - iOS
 - Android
