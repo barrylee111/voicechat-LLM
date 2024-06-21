@@ -7,13 +7,20 @@ const api = axios.create({
 });
 
 export const generateLLMResponse = async (prompt, narrator, documents) => {
-  console.log(`prompt: ${prompt}, narrator: ${narrator}`)
+  let request = {
+    prompt,
+    documents
+  }
+
+  if (narrator && narrator !== 'none') {
+    request = {
+      ...request,
+      narrator
+    }
+  }
+
   try {
-    const response = await api.post('/chat/generate', {
-      prompt,
-      narrator,
-      documents,
-    });
+    const response = await api.post('/chat/generate', request);
     return response.data;
   } catch (error) {
     throw new Error('Failed to generate prompt: ' + error.message);

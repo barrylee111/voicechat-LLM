@@ -1,3 +1,4 @@
+import copy
 import json
 import numpy as np
 import os
@@ -52,19 +53,22 @@ async def generate_response(prompt, narrator=None, documents=None):
 
         messages += [{"role": "user", "content": f'{prompt}'}]
 
-        if narrator in format_dict:
-            messages.insert(0, format_dict[narrator])
+        local_msgs = messages.copy()
+        print(messages)
+
+        if narrator and narrator in format_dict:
+            local_msgs.insert(0, format_dict[narrator])
         else:
             print('Sorry, that narrator is not available at this time...')
 
         if documents:
             for doc in documents:
-                messages.append({"role": "system", "content": f'Domain Knowledge: {doc}'})
+                local_msgs.append({"role": "system", "content": f'Domain Knowledge: {doc}'})
 
         response = await client.chat.completions.create(
             model="gpt-3.5-turbo-0125",
             response_format={"type": "json_object"},
-            messages=messages
+            messages=local_msgs
         )
 
         response_content = json.loads(response.choices[0].message.content)

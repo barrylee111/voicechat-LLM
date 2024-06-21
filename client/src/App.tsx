@@ -9,7 +9,7 @@ const App: React.FC = () => {
   const [narrator, setNarrator] = useState('');
   const [responseText, setResponseText] = useState('');
 
-  const handleGenerateLLMResponse = async () => {
+  const handleGenerateLLMResponse = async (): Promise<void> => {
     try {
       const response = await generateLLMResponse(prompt, narrator);
       setResponseText(response.response);
@@ -42,6 +42,7 @@ const App: React.FC = () => {
           onChange={(e) => setResponseText(e.target.value)}
           className={Styles.conversation}
           readOnly
+          aria-live="polite"
         />
       </div>
       <div className={Styles.prompt}>
